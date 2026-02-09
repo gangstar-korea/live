@@ -81,7 +81,7 @@ const PilotApp = (() => {
     event_type: log.event_type,
 
     user_id: log.user_id,
-    loginid: log.loginId,     // ← users.json의 loginId → DB의 loginid
+    loginid: log.loginId ?? log.loginid ?? null,     // ← users.json의 loginId → DB의 loginid
     name: log.name,
     role: log.role,
     team: log.team,
@@ -155,7 +155,7 @@ const PilotApp = (() => {
     const mobile = confirm("모바일로 접속했으면 [확인], 아니면 [취소]");
     return { env, is_mobile: mobile };
   }
-
+/*
   async function askLeaderModeAndMembers(user) {
     const isGroup = confirm("팀원들과 같이 보는 경우 [확인], 혼자 보면 [취소]");
     const leader_mode = isGroup ? "group" : "solo";
@@ -175,7 +175,7 @@ const PilotApp = (() => {
       }
     }
     return { leader_mode, group_members };
-  }
+  } */
 
   async function ownerPreviewCounts(ownerUser) {
     // 파일럿: "오늘 enter 누적" 기준으로 팀별 접속수 보여주기
@@ -264,14 +264,7 @@ const PilotApp = (() => {
         // 1) env/mobile
         // const envMobile = await askEnvAndMobile();
 
-        // 2) role 분기
-        let leader_mode = null;
-        let group_members = [];
-        if (user.role === "leader") {
-          const m = await askLeaderModeAndMembers(user);
-          leader_mode = m.leader_mode;
-          group_members = m.group_members;
-        }
+                
         if (user.role === "owner") {
           // 파일럿용: 로컬 통계 기반 프리뷰
           await ownerPreviewCounts(user);
@@ -286,8 +279,8 @@ const PilotApp = (() => {
           role: user.role,
           team: user.team,
           position: user.position,
-          leader_mode,
-          group_members,
+          leader_mode: null,
+          group_members: [],
           // env/is_mobile은 live에서 입력받을 거라 비워둠
           env: null,
           is_mobile: null
@@ -311,103 +304,431 @@ const PilotApp = (() => {
     };
   }
 
-  async function initLivePage() {
-    const sess = loadSession();
-    if (!sess) {
-      alert("세션이 없습니다. 로그인 페이지로 이동합니다.");
-      location.href = "./index.html";
-      return;
+ async function initLivePage() {
+  const sess = loadSession();
+  if (!sess) {
+    alert("세션이 없습니다. 로그인 페이지로 이동합니다.");
+    location.href = "./index.html";
+    return;
+  }
+
+  // --- 기본 DOM 참조 ---
+  const yt = $("yt");
+  const modal = document.getElementById("joinModal");
+  const stepEnv = document.getElementById("stepEnv");
+  const stepLeader = document.getElementById("stepLeader");
+  const memberPicker = document.getElementById("memberPicker");
+  const memberList = document.getElementById("memberList");
+
+  const btnEnvNext = document.getElementById("btnEnvNext");
+  const btnLeaderBack = document.getElementById("btnLeaderBack");
+  const btnLeaderConfirm = document.getElementById("btnLeaderConfirm");
+
+  const btnGroupEdit = document.getElementById("btnGroupEdit");
+  const teamOnlineText = document.getElementById("teamOnlineText");
+
+  // 유튜브는 "확인" 이후에만 로드
+  if (yt) yt.src = "";
+
+  // 팀장 전용 버튼은 기본 숨김
+  if (btnGroupEdit) btnGroupEdit.style.display = "none";
+  if (teamOnlineText) teamOnlineText.textContent = "";
+
+  // --- 팀원 목록 준비 (팀장 기능/표시 계산에 사용) ---
+  const allUsers = await loadUsers();
+  const teamMembers = allUsers.filter(u => u.role === "member" && u.team === sess.team);
+
+    /* ===============================
+     담당(owner) 조직 접속 현황
+  =============================== */
+
+  const btnOrgStatus = document.getElementById("btnOrgStatus");
+  const orgModal = document.getElementById("orgModal");
+  const btnOrgClose = document.getElementById("btnOrgClose");
+  const orgTbody = document.getElementById("orgTbody");
+
+  // 담당 산하 팀 목록 (leader 중 owner가 나인 팀)
+  function getOwnerTeams() {
+    return [
+      ...new Set(
+        allUsers
+          .filter(u => u.role === "leader" && u.owner === sess.name)
+          .map(u => u.team)
+      )
+    ];
+  }
+
+  function getTeamLeader(team) {
+    return allUsers.find(u => u.role === "leader" && u.team === team) || null;
+  }
+
+  function getTeamMembers(team) {
+    return allUsers.filter(u => u.role === "member" && u.team === team);
+  }
+
+  // 오늘 로그 기준 현재 접속자 계산
+  function computeOnlineUserSet(logs) {
+    const lastByUser = new Map();
+
+    for (const l of logs) {
+      if (!l.user_id) continue;
+      const prev = lastByUser.get(l.user_id);
+      if (!prev || new Date(l.ts) > new Date(prev.ts)) {
+        lastByUser.set(l.user_id, l);
+      }
     }
-    function showEnvModalAndStart() {
-  const modal = document.getElementById("envModal");
-  const btn = document.getElementById("envConfirmBtn");
-  const mobileChk = document.getElementById("isMobileChk");
 
-  modal.style.display = "flex";
+    const online = new Set();
+    for (const [uid, ev] of lastByUser.entries()) {
+      if (ev.event_type === "enter") online.add(uid);
+    }
+    return online;
+  }
 
-  btn.onclick = async () => {
-    const env = document.querySelector('input[name="env"]:checked')?.value || "internal";
-    const is_mobile = !!mobileChk.checked;
+  async function refreshOrgStatusTable() {
+    if (!orgTbody) return;
 
-    // 세션 업데이트
-    sess.env = env;
-    sess.is_mobile = is_mobile;
-    saveSession(sess);
+    const teams = getOwnerTeams();
+    const logs = CONFIG.USE_SUPABASE
+      ? await supabaseReadLogsToday()
+      : localReadLogsToday();
 
-    // enter 로그는 여기서 쌓기 (확인 후에만)
-    await writeLog({
-      event_type: "enter",
-      ...sess
+    const onlineSet = computeOnlineUserSet(logs);
+    orgTbody.innerHTML = "";
+
+    for (const team of teams) {
+      const leader = getTeamLeader(team);
+      const members = getTeamMembers(team);
+
+      const leaderOnline = leader ? onlineSet.has(leader.id) : false;
+      const memberOnlineCount = members.filter(m => onlineSet.has(m.id)).length;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${team}</td>
+        <td>${leader ? (leaderOnline ? "접속중" : "미접속") : "-"}</td>
+        <td>${memberOnlineCount}/${members.length} 접속중</td>
+      `;
+      orgTbody.appendChild(tr);
+    }
+  }
+
+  // 담당일 때만 버튼 노출
+  if (sess.role === "owner" && btnOrgStatus) {
+    btnOrgStatus.style.display = "inline-block";
+
+    btnOrgStatus.onclick = async () => {
+      await refreshOrgStatusTable();
+      orgModal.style.display = "flex";
+    };
+  }
+
+  if (btnOrgClose) {
+    btnOrgClose.onclick = () => {
+      orgModal.style.display = "none";
+    };
+  }
+
+  // --- "개별 접속 중인 팀원" 계산 (오늘 로그 기반) ---
+  function computeOnlineIndividuals(logs) {
+    const lastByUser = new Map();
+    for (const l of logs) {
+      if (!l.user_id) continue;
+      // 우리 팀 팀원만
+      if (!teamMembers.some(m => m.id === l.user_id)) continue;
+
+      const prev = lastByUser.get(l.user_id);
+      if (!prev || new Date(l.ts) > new Date(prev.ts)) lastByUser.set(l.user_id, l);
+    }
+
+    const online = new Set();
+    for (const [uid, ev] of lastByUser.entries()) {
+      if (ev.event_type === "enter") online.add(uid);
+    }
+    return online;
+  }
+
+  let onlineIndividuals = new Set();
+
+  function renderMemberPicker() {
+    if (!memberList) return;
+    memberList.innerHTML = "";
+
+    for (const m of teamMembers) {
+      const disabled = onlineIndividuals.has(m.id); // 이미 개별 접속이면 선택 불가
+      const checked = (sess.group_members || []).some(x => x.id === m.id);
+
+      const row = document.createElement("label");
+      row.style.display = "flex";
+      row.style.gap = "8px";
+      row.style.alignItems = "center";
+      row.style.padding = "6px 0";
+      row.style.opacity = disabled ? "0.5" : "1";
+
+      row.innerHTML = `
+        <input type="checkbox" data-mid="${m.id}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}>
+        <span>${m.name}</span>
+      `;
+      memberList.appendChild(row);
+    }
+  }
+
+  // 팀장 그룹에서 "개별 접속된 팀원" 자동 해제
+  function dropConflictedMembers() {
+    const before = sess.group_members?.length || 0;
+    sess.group_members = (sess.group_members || []).filter(x => !onlineIndividuals.has(x.id));
+    const after = sess.group_members?.length || 0;
+
+    if (after !== before) {
+      saveSession(sess);
+      renderMemberPicker();
+      $("userCard").textContent = formatUserCard(sess);
+    }
+  }
+
+  // 우측상단: 현재접속팀원 X/Y
+  function updateTeamOnlineText() {
+    if (!teamOnlineText) return;
+
+    const total = teamMembers.length;
+    const groupEffective = (sess.group_members || []).filter(x => !onlineIndividuals.has(x.id)).length;
+    const online = onlineIndividuals.size + groupEffective;
+
+    teamOnlineText.textContent = `현재접속팀원 ${online}/${total}`;
+  }
+
+  // 주기적으로 온라인 상태 갱신
+  async function refreshOnlineState() {
+    const logs = CONFIG.USE_SUPABASE ? await supabaseReadLogsToday() : localReadLogsToday();
+    onlineIndividuals = computeOnlineIndividuals(logs);
+    dropConflictedMembers();
+    renderMemberPicker();
+    updateTeamOnlineText();
+  }
+
+  // --- 모달 단계 전환 ---
+  function openModalToEnvStep() {
+    if (!modal) return;
+    modal.style.display = "flex";
+    stepEnv.style.display = "block";
+    stepLeader.style.display = "none";
+  }
+
+  function openModalToLeaderStep() {
+    if (!modal) return;
+    modal.style.display = "flex";
+    stepEnv.style.display = "none";
+    stepLeader.style.display = "block";
+    memberPicker.style.display = "none"; // 기본 숨김
+  }
+
+  function setLeaderModeUIFromSession() {
+    const mode = sess.leader_mode || "solo";
+    document.querySelectorAll('input[name="leaderMode"]').forEach(r => {
+      r.checked = (r.value === mode);
     });
 
+    memberPicker.style.display = (mode === "group") ? "block" : "none";
+    if (mode === "group") renderMemberPicker();
+  }
+
+  // --- 최종 입장 처리: enter 로그 1회 + 카드/영상 로드 ---
+  let joined = false;
+
+  async function finalizeJoin() {
+    if (joined) return; // 중복 방지
+    joined = true;
+
+    // enter 로그는 여기서 "딱 1번"
+    await writeLog({ event_type: "enter", ...sess });
+
     // 우상단 카드 갱신
-    document.getElementById("userCard").textContent = formatUserCard(sess);
+    $("userCard").textContent = formatUserCard(sess);
 
-    // 영상 로드 (확인 전에는 안 보이게)
-    const yt = document.getElementById("yt");
-    yt.src = `https://www.youtube.com/embed/${CONFIG.YOUTUBE_VIDEO_ID}?autoplay=1&mute=1`;
+    // 영상 로드
+    if (yt) {
+      yt.src = `https://www.youtube.com/embed/${CONFIG.YOUTUBE_VIDEO_ID}?autoplay=1&mute=1`;
+    }
 
-    modal.style.display = "none";
+    // 모달 닫기
+    if (modal) modal.style.display = "none";
+
+    // 팀장 전용: 그룹 수정 버튼 + 상태 갱신 루프
+    if (sess.role === "leader") {
+      if (btnGroupEdit) btnGroupEdit.style.display = "inline-block";
+      await refreshOnlineState();
+      setInterval(refreshOnlineState, 5000);
+    }
+  }
+
+  // --- STEP 1: env/mobile ---
+  if (btnEnvNext) {
+    btnEnvNext.onclick = async () => {
+      const env = document.querySelector('input[name="env"]:checked')?.value || "internal";
+
+      const isMobileChk = document.getElementById("isMobileChk");
+      const is_mobile = !!(isMobileChk && isMobileChk.checked);
+
+      sess.env = env;
+      sess.is_mobile = is_mobile;
+      saveSession(sess);
+
+      if (sess.role === "leader") {
+        // 팀장만 Step 2로
+        openModalToLeaderStep();
+        // 멤버 리스트/disabled 반영
+        await refreshOnlineState();
+        setLeaderModeUIFromSession();
+      } else {
+        // member/owner는 바로 입장
+        await finalizeJoin();
+      }
+    };
+  }
+
+  // --- STEP 2: 팀장 전용 ---
+  // 라디오 변경 시
+  document.querySelectorAll('input[name="leaderMode"]').forEach(r => {
+    r.onchange = () => {
+      const mode = document.querySelector('input[name="leaderMode"]:checked')?.value || "solo";
+      sess.leader_mode = mode;
+
+      if (mode === "solo") {
+        sess.group_members = [];
+        saveSession(sess);
+        memberPicker.style.display = "none";
+        $("userCard").textContent = formatUserCard(sess);
+        updateTeamOnlineText();
+      } else {
+        saveSession(sess);
+        memberPicker.style.display = "block";
+        renderMemberPicker();
+      }
+    };
+  });
+
+  if (btnLeaderBack) {
+    btnLeaderBack.onclick = () => openModalToEnvStep();
+  }
+
+  if (btnLeaderConfirm) {
+    btnLeaderConfirm.onclick = async () => {
+      const mode = document.querySelector('input[name="leaderMode"]:checked')?.value || "solo";
+      sess.leader_mode = mode;
+
+      if (mode === "group") {
+        const checks = Array.from(document.querySelectorAll('#memberList input[type="checkbox"]'));
+        const selectedIds = checks
+          .filter(c => c.checked && !c.disabled)
+          .map(c => c.getAttribute("data-mid"));
+
+        sess.group_members = teamMembers
+          .filter(m => selectedIds.includes(m.id))
+          .map(m => ({ id: m.id, name: m.name }));
+
+        // 혹시 충돌 있으면 자동 해제
+        dropConflictedMembers();
+      } else {
+        sess.group_members = [];
+      }
+
+      saveSession(sess);
+      await finalizeJoin();
+    };
+  }
+
+  // --- 팀장 우측 버튼: 같이보기 수정 ---
+  if (btnGroupEdit) {
+    btnGroupEdit.onclick = async () => {
+      // 팀장만 의미 있음
+      if (sess.role !== "leader") return;
+
+      openModalToLeaderStep();
+      // 현재 세션 상태로 UI 반영
+      await refreshOnlineState();
+      setLeaderModeUIFromSession();
+    };
+  }
+
+  // --- 최초 진입: env/mobile 모달 ---
+  // (env/is_mobile 이미 값이 있더라도, 파일럿 요구사항대로 "항상 물어보기"면 무조건 띄움)
+  openModalToEnvStep();
+
+  // --- userCard는 env 확정 전엔 애매하니, 일단 이름/팀만 보여주고 싶으면 여기서 세팅 가능 ---
+  // $("userCard").textContent = `${sess.name} (${sess.team})`;
+
+  // --- 채팅 / 접속자 근사(로컬) / 로그아웃 / leave 로그 --- (기존 코드 유지)
+  // userCard는 finalizeJoin에서 세팅하므로 여기서 중복 세팅하지 말 것.
+
+  // 근사 접속자(로컬 기준) - 기존대로 유지
+  const updateApprox = () => {
+    const el = $("approxOnline");
+    if (el) el.textContent = `최근 1분 접속: ${computeApproxOnlineFromLocal()}명`;
   };
-}
+  updateApprox();
+  setInterval(updateApprox, 5000);
 
-    // 유튜브 임베드
-    // const yt = $("yt");
-    // yt.src = `https://www.youtube.com/embed/${CONFIG.YOUTUBE_VIDEO_ID}?autoplay=1&mute=1`;
-    // 우상단 카드: env 정보가 아직 없을 수 있으니 일단 기본 출력
-$("userCard").textContent = formatUserCard(sess);
+  // 채팅 수신
+  chatChannel.onmessage = (ev) => {
+    appendChatMessage(ev.data);
+  };
 
-// 모달 띄우고 확인 후 시작
-showEnvModalAndStart();
-
-    // 근사 접속자
-    const updateApprox = () => {
-      $("approxOnline").textContent = `최근 1분 접속: ${computeApproxOnlineFromLocal()}명`;
+  // 채팅 전송
+  const send = () => {
+    const input = $("chatInput");
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    const msg = {
+      ts: nowISO(),
+      user_id: sess.user_id,
+      name: sess.name,
+      team: sess.team,
+      role: sess.role,
+      text
     };
-    updateApprox();
-    setInterval(updateApprox, 5000);
+    chatChannel.postMessage(msg);
+    input.value = "";
+  };
 
-    // 채팅 수신
-    chatChannel.onmessage = (ev) => {
-      appendChatMessage(ev.data);
-    };
-
-    // 채팅 전송
-    const send = () => {
-      const input = $("chatInput");
-      const text = input.value.trim();
-      if (!text) return;
-      const msg = { ts: nowISO(), user_id: sess.user_id, name: sess.name, team: sess.team, role: sess.role, text };
-      chatChannel.postMessage(msg);
-      input.value = "";
-    };
-    $("sendBtn").onclick = send;
+  if ($("sendBtn")) $("sendBtn").onclick = send;
+  if ($("chatInput")) {
     $("chatInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter") send();
     });
+  }
 
-    // 로그아웃
+  // 로그아웃
+  if ($("btnLogout")) {
     $("btnLogout").onclick = async (e) => {
       e.preventDefault();
       await safeLeave(sess);
       clearSession();
       location.href = "./index.html";
     };
-
-    // 페이지 이탈(leave 로그) - 최대한 남기기
-    window.addEventListener("beforeunload", () => {
-      // fetch는 막힐 수 있어서 local은 즉시 기록, supabase는 best-effort
-      // (파일럿이라 과감히)
-      const leaveLog = { event_type: "leave", ...sess, ts: nowISO() };
-      localAppendLog(leaveLog);
-
-      if (CONFIG.USE_SUPABASE && CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY) {
-        const url = `${CONFIG.SUPABASE_URL}/rest/v1/${CONFIG.SUPABASE_TABLE}`;
-        const blob = new Blob([JSON.stringify([leaveLog])], { type: "application/json" });
-        navigator.sendBeacon(url, blob); // 헤더 제한 있음(완벽X) → 파일럿용
-      }
-    });
   }
+
+  // 페이지 이탈(leave 로그) - 최대한 남기기
+  window.addEventListener("beforeunload", () => {
+    const leaveLog = { event_type: "leave", ...sess, ts: nowISO() };
+    localAppendLog(leaveLog);
+
+    if (CONFIG.USE_SUPABASE && CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY) {
+      fetch(`${CONFIG.SUPABASE_URL}/rest/v1/${CONFIG.SUPABASE_TABLE}`, {
+        method: "POST",
+        headers: {
+          "apikey": CONFIG.SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${CONFIG.SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify([toDbPayload(leaveLog)]),
+        keepalive: true
+      }).catch(()=>{});
+    }
+  });
+}
+
 
   async function safeLeave(sess) {
     try {
