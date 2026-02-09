@@ -262,7 +262,7 @@ const PilotApp = (() => {
         }
 
         // 1) env/mobile
-        const envMobile = await askEnvAndMobile();
+        // const envMobile = await askEnvAndMobile();
 
         // 2) role 분기
         let leader_mode = null;
@@ -279,7 +279,7 @@ const PilotApp = (() => {
 
         // 세션 저장
         const sess = {
-          ...envMobile,
+          // ...envMobile,
           user_id: user.id,
           loginId: user.loginId,
           name: user.name,
@@ -287,15 +287,18 @@ const PilotApp = (() => {
           team: user.team,
           position: user.position,
           leader_mode,
-          group_members
+          group_members,
+          // env/is_mobile은 live에서 입력받을 거라 비워둠
+          env: null,
+          is_mobile: null
         };
         saveSession(sess);
 
         // enter 로그
-        await writeLog({
-          event_type: "enter",
-          ...sess
-        });
+        //await writeLog({
+        //  event_type: "enter",
+        //  ...sess
+        //});
 
         // 이동
         location.href = "./live.html";
@@ -315,13 +318,47 @@ const PilotApp = (() => {
       location.href = "./index.html";
       return;
     }
+    function showEnvModalAndStart() {
+  const modal = document.getElementById("envModal");
+  const btn = document.getElementById("envConfirmBtn");
+  const mobileChk = document.getElementById("isMobileChk");
 
-    // 유튜브 임베드
-    const yt = $("yt");
+  modal.style.display = "flex";
+
+  btn.onclick = async () => {
+    const env = document.querySelector('input[name="env"]:checked')?.value || "internal";
+    const is_mobile = !!mobileChk.checked;
+
+    // 세션 업데이트
+    sess.env = env;
+    sess.is_mobile = is_mobile;
+    saveSession(sess);
+
+    // enter 로그는 여기서 쌓기 (확인 후에만)
+    await writeLog({
+      event_type: "enter",
+      ...sess
+    });
+
+    // 우상단 카드 갱신
+    document.getElementById("userCard").textContent = formatUserCard(sess);
+
+    // 영상 로드 (확인 전에는 안 보이게)
+    const yt = document.getElementById("yt");
     yt.src = `https://www.youtube.com/embed/${CONFIG.YOUTUBE_VIDEO_ID}?autoplay=1&mute=1`;
 
-    // 우상단 카드
-    $("userCard").textContent = formatUserCard(sess);
+    modal.style.display = "none";
+  };
+}
+
+    // 유튜브 임베드
+    // const yt = $("yt");
+    // yt.src = `https://www.youtube.com/embed/${CONFIG.YOUTUBE_VIDEO_ID}?autoplay=1&mute=1`;
+    // 우상단 카드: env 정보가 아직 없을 수 있으니 일단 기본 출력
+$("userCard").textContent = formatUserCard(sess);
+
+// 모달 띄우고 확인 후 시작
+showEnvModalAndStart();
 
     // 근사 접속자
     const updateApprox = () => {

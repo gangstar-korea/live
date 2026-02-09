@@ -40,6 +40,46 @@
       </div>
     </div>
   </div>
+  
+  <!-- 접속 정보 모달 -->
+<div id="envModal" style="
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:none; align-items:center; justify-content:center; z-index:9999;">
+  <div style="
+    width:min(520px, calc(100% - 24px));
+    background:#121b2e; border:1px solid #23304d; border-radius:14px;
+    padding:16px;">
+    <h3 style="margin:0 0 10px 0;">접속 정보 확인</h3>
+
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+      <label style="display:flex; gap:8px; align-items:center;">
+        <input type="radio" name="env" value="internal" checked>
+        <span>사내</span>
+      </label>
+      <label style="display:flex; gap:8px; align-items:center;">
+        <input type="radio" name="env" value="external">
+        <span>사외</span>
+      </label>
+
+      <span style="opacity:.6;">|</span>
+
+      <label style="display:flex; gap:8px; align-items:center;">
+        <input id="isMobileChk" type="checkbox">
+        <span>모바일 접속</span>
+      </label>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px;">
+      <button id="envConfirmBtn" style="padding:10px 12px; border-radius:10px; border:none; background:#2b59ff; color:#fff; font-weight:700; cursor:pointer;">
+        확인
+      </button>
+    </div>
+
+    <div style="margin-top:10px; color:#a9b7da; font-size:12px;">
+      확인을 눌러야 라이브 영상이 재생됩니다.
+    </div>
+  </div>
+</div>
 
   <div class="wrap">
     <div class="card">
