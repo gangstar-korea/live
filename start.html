@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>전사 라이브 파일럿 - 통계</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#0b1220; color:#e9eefc; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px; }
+    .card { background:#121b2e; border:1px solid #23304d; border-radius:14px; padding:16px; margin-bottom:12px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px; border-bottom:1px solid #23304d; text-align:left; font-size:14px; }
+    .muted { color:#a9b7da; font-size: 13px; }
+    button { padding:10px 12px; border-radius:10px; border:none; background:#2b59ff; color:#fff; font-weight:700; cursor:pointer; }
+    a { color:#9db4ff; text-decoration:none; }
+    code { background:#0f172a; padding:2px 6px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <h2 style="margin:0;">접속 통계(파일럿)</h2>
+        <div class="muted"><a href="./index.html">로그인으로</a></div>
+      </div>
+      <p class="muted" style="margin-bottom:0;">
+        기준: <code>enter</code> 로그의 시간대(시) 집계. (파일럿은 브라우저 로컬 저장 또는 Supabase 연동 가능)
+      </p>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+        <div>
+          <div><strong>오늘 시간대별 접속(enter)</strong></div>
+          <div class="muted">가장 많이 들어온 시간대를 찾는다.</div>
+        </div>
+        <button id="btnRefresh">새로고침</button>
+      </div>
+      <div style="height:12px"></div>
+      <table>
+        <thead>
+          <tr><th>시간(시)</th><th>접속 수(enter)</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="muted" style="margin-top:10px;">
+        * leave 로그까지 안정적으로 쌓이면 체류시간(enter~leave) 통계도 가능.
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+  <script>
+    PilotApp.initStatsPage();
+  </script>
+</body>
+</html>

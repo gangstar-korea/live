@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>전사 라이브 파일럿 - LIVE</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#0b1220; color:#e9eefc; }
+    .bar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid #23304d; background:#0f172a; position:sticky; top:0; z-index:10;}
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid #2a3b61; border-radius:999px; background:#121b2e; }
+    .wrap { display:grid; grid-template-columns: 1.6fr 1fr; gap:12px; padding:12px; max-width: 1200px; margin: 0 auto; }
+    .card { background:#121b2e; border:1px solid #23304d; border-radius:14px; overflow:hidden; }
+    .card h3 { margin:0; padding:12px 14px; border-bottom:1px solid #23304d; }
+    .content { padding: 12px 14px; }
+    iframe { width:100%; aspect-ratio: 16/9; border:0; display:block; background:#000; }
+    .chatBox { height: calc(100vh - 220px); overflow:auto; padding: 12px 14px; }
+    .msg { margin:0 0 10px 0; }
+    .meta { color:#a9b7da; font-size:12px; }
+    .inputRow { display:flex; gap:10px; padding: 12px 14px; border-top:1px solid #23304d; }
+    input { flex:1; padding:12px; border-radius:10px; border:1px solid #2a3b61; background:#0f172a; color:#e9eefc; }
+    button { padding:12px 14px; border-radius:10px; border:none; background:#2b59ff; color:#fff; font-weight:700; cursor:pointer; }
+    .rightTop { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+    .muted { color:#a9b7da; font-size: 12px; }
+    .link { color:#9db4ff; text-decoration:none; }
+    @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } .chatBox { height: 40vh; } }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <div style="display:flex; gap:10px; align-items:center;">
+      <strong>ON AIR</strong>
+      <span class="pill" id="eventTitle">전사 라이브 파일럿</span>
+      <span class="pill" id="approxOnline">최근 1분 접속: -</span>
+    </div>
+    <div class="rightTop">
+      <div class="pill" id="userCard">접속자 정보 로딩중…</div>
+      <div class="muted">
+        <a class="link" href="./stats.html">통계</a> ·
+        <a class="link" href="#" id="btnLogout">로그아웃</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <h3>라이브 영상</h3>
+      <iframe id="yt" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+      <div class="content muted">
+        * 파일럿은 유튜브 임베드(가짜 라이브). 본개발에서 RTMP/SRT → HLS/LL-HLS + CDN으로 교체.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>채팅</h3>
+      <div id="chatBox" class="chatBox"></div>
+      <div class="inputRow">
+        <input id="chatInput" placeholder="메시지 입력 (엔터)" />
+        <button id="sendBtn">전송</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+  <script>
+    PilotApp.initLivePage();
+  </script>
+</body>
+</html>

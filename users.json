@@ -1,0 +1,33 @@
+{
+  "users": [
+    {
+      "id": "u001",
+      "loginId": "member01",
+      "password": "1234",
+      "name": "김철수",
+      "role": "member",
+      "team": "마케팅1팀",
+      "position": "팀원",
+      "owner": "홍길동"
+    },
+    {
+      "id": "u010",
+      "loginId": "leader01",
+      "password": "1234",
+      "name": "박팀장",
+      "role": "leader",
+      "team": "마케팅1팀",
+      "position": "팀장",
+      "owner": "홍길동"
+    },
+    {
+      "id": "u100",
+      "loginId": "owner01",
+      "password": "1234",
+      "name": "홍길동",
+      "role": "owner",
+      "team": "마케팅본부",
+      "position": "담당"
+    }
+  ]
+}
