@@ -534,8 +534,19 @@ const PilotApp = (() => {
 
   // --- 최종 입장 처리: enter 로그 1회 + 카드/영상 로드 ---
   let joined = false;
+  let isLeaderEditing = false;  // 추가: 팀장 설정 수정 모드인지
+
 
   async function finalizeJoin() {
+    // 🔥 수정 모드면 enter/log/영상 건드리지 않는다
+  if (joined && isLeaderEditing) {
+    // 세션만 반영
+    $("userCard").textContent = formatUserCard(sess);
+    updateTeamOnlineText();
+    modal.style.display = "none";
+    isLeaderEditing = false;
+    return;
+  }
     if (joined) return; // 중복 방지
     joined = true;
 
@@ -544,7 +555,8 @@ const PilotApp = (() => {
 
     // 우상단 카드 갱신
     $("userCard").textContent = formatUserCard(sess);
-
+    // 팀원 접속 수 표시 갱신
+    updateTeamOnlineText();
     // 영상 로드
     if (yt) {
       yt.src = `https://www.youtube.com/embed/${CONFIG.YOUTUBE_VIDEO_ID}?autoplay=1&mute=1`;
@@ -552,7 +564,8 @@ const PilotApp = (() => {
 
     // 모달 닫기
     if (modal) modal.style.display = "none";
-
+    // 수정 모드 해제
+    isLeaderEditing = false;
     // 팀장 전용: 그룹 수정 버튼 + 상태 갱신 루프
     if (sess.role === "leader") {
       if (btnGroupEdit) btnGroupEdit.style.display = "inline-block";
@@ -580,8 +593,11 @@ const PilotApp = (() => {
         await refreshOnlineState();
         setLeaderModeUIFromSession();
       } else {
-        // member/owner는 바로 입장
-        await finalizeJoin();
+        
+          // 처음 입장일 때만 enter 로그 찍고 영상 시작
+          await finalizeJoin();
+        
+
       }
     };
   }
@@ -640,8 +656,10 @@ const PilotApp = (() => {
   // --- 팀장 우측 버튼: 같이보기 수정 ---
   if (btnGroupEdit) {
     btnGroupEdit.onclick = async () => {
+      
       // 팀장만 의미 있음
       if (sess.role !== "leader") return;
+      isLeaderEditing = true;
 
       openModalToLeaderStep();
       // 현재 세션 상태로 UI 반영
