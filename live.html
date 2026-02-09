@@ -40,46 +40,83 @@
       </div>
     </div>
   </div>
-  
-  <!-- 접속 정보 모달 -->
-<div id="envModal" style="
-  position:fixed; inset:0; background:rgba(0,0,0,.65);
-  display:none; align-items:center; justify-content:center; z-index:9999;">
-  <div style="
-    width:min(520px, calc(100% - 24px));
-    background:#121b2e; border:1px solid #23304d; border-radius:14px;
-    padding:16px;">
+
+  <!-- 접속 정보 모달 --> 
+<div id="joinModal" style="position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:9999;">
+  <div style="width:min(560px,calc(100% - 24px));background:#121b2e;border:1px solid #23304d;border-radius:14px;padding:16px;">
     <h3 style="margin:0 0 10px 0;">접속 정보 확인</h3>
 
-    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
-      <label style="display:flex; gap:8px; align-items:center;">
-        <input type="radio" name="env" value="internal" checked>
-        <span>사내</span>
-      </label>
-      <label style="display:flex; gap:8px; align-items:center;">
-        <input type="radio" name="env" value="external">
-        <span>사외</span>
-      </label>
+    <!-- STEP 1 -->
+    <div id="stepEnv">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <label><input type="radio" name="env" value="internal" checked> 사내</label>
+        <label><input type="radio" name="env" value="external"> 사외</label>
+        <span style="opacity:.6;">|</span>
+        <label><input id="isMobileChk" type="checkbox"> 모바일 접속</label>
+      </div>
 
-      <span style="opacity:.6;">|</span>
-
-      <label style="display:flex; gap:8px; align-items:center;">
-        <input id="isMobileChk" type="checkbox">
-        <span>모바일 접속</span>
-      </label>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button id="btnEnvNext">다음</button>
+      </div>
     </div>
 
-    <div style="display:flex; justify-content:flex-end; gap:10px;">
-      <button id="envConfirmBtn" style="padding:10px 12px; border-radius:10px; border:none; background:#2b59ff; color:#fff; font-weight:700; cursor:pointer;">
-        확인
-      </button>
+    <!-- STEP 2 (leader only) -->
+    <div id="stepLeader" style="display:none;">
+      <div style="margin-bottom:10px;font-weight:700;">팀장 보기 방식</div>
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;">
+        <label><input type="radio" name="leaderMode" value="solo" checked> 혼자 보기</label>
+        <label><input type="radio" name="leaderMode" value="group"> 함께 보기</label>
+      </div>
+
+      <div id="memberPicker" style="display:none;border:1px solid #23304d;border-radius:10px;padding:10px;max-height:260px;overflow:auto;margin-bottom:12px;">
+        <div style="margin-bottom:6px;opacity:.8;">같이 보는 팀원 선택</div>
+        <div id="memberList"></div>
+        <div style="margin-top:8px;font-size:12px;color:#a9b7da;">
+          * 이미 개별 접속 중인 팀원은 선택할 수 없습니다.
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button id="btnLeaderBack">이전</button>
+        <button id="btnLeaderConfirm">확인</button>
+      </div>
     </div>
 
-    <div style="margin-top:10px; color:#a9b7da; font-size:12px;">
+    <div style="margin-top:10px;color:#a9b7da;font-size:12px;">
       확인을 눌러야 라이브 영상이 재생됩니다.
     </div>
   </div>
 </div>
+<button id="btnGroupEdit" style="display:none;">같이보기 설정</button>
+<div id="teamOnlineText" style="font-size:12px;opacity:.85;"></div>
+<button id="btnOrgStatus" style="display:none;">조직접속현황</button>
+  <!-- STEP 3 (top)-->
+   <div id="orgModal" style="position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:9999;">
+  <div style="width:min(720px,calc(100% - 24px));background:#121b2e;border:1px solid #23304d;border-radius:14px;padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <h3 style="margin:0;">조직 접속 현황</h3>
+      <button id="btnOrgClose">닫기</button>
+    </div>
+
+    <div style="margin-top:12px;max-height:420px;overflow:auto;border:1px solid #23304d;border-radius:10px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="position:sticky;top:0;background:#121b2e;">
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #23304d;">팀</th>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #23304d;">팀장</th>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #23304d;">팀원</th>
+          </tr>
+        </thead>
+        <tbody id="orgTbody"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:10px;color:#a9b7da;font-size:12px;">
+      * “접속중”은 오늘 로그 기준(enter/leave 마지막 이벤트)으로 계산합니다.
+    </div>
+  </div>
+</div>
+
 
   <div class="wrap">
     <div class="card">
