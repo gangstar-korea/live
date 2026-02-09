@@ -17,14 +17,32 @@ const PilotApp = (() => {
     // 통계 로그 저장소
     // 1) 기본: 브라우저 localStorage (데모/개발 편함)
     // 2) 선택: Supabase REST 연동 (전사원이 서로 다른 PC에서 접속해도 집계 가능)
-    USE_SUPABASE: false,
-    SUPABASE_URL: "",          // 예: https://xxxx.supabase.co
-    SUPABASE_ANON_KEY: "",     // Settings > API > anon public key
+    USE_SUPABASE: true,
+    SUPABASE_URL: "https://iywiojasdpregkuflzzp.supabase.co",          // 예: https://xxxx.supabase.co
+    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5d2lvamFzZHByZWdrdWZsenpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MjQ0MDAsImV4cCI6MjA4NjIwMDQwMH0.Xr5h-YJULnjaMEpZBLKV4k6KlDVfcnwUd7zHUjwR5hI",     // Settings > API > anon public key
 
     // Supabase 테이블명(미리 만들어야 함)
     SUPABASE_TABLE: "access_logs"
   };
 
+  async function supabaseReadLogsToday() {
+    const start = new Date();
+    start.setHours(0,0,0,0);
+    const startIso = start.toISOString();
+
+    const url = `${CONFIG.SUPABASE_URL}/rest/v1/${CONFIG.SUPABASE_TABLE}` +
+                `?ts=gte.${encodeURIComponent(startIso)}&order=ts.asc`;
+
+    const res = await fetch(url, {
+     headers: {
+        apikey: CONFIG.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${CONFIG.SUPABASE_ANON_KEY}`
+     }
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+    return await res.json();
+  }
   // ===== 유틸 =====
   const $ = (id) => document.getElementById(id);
   const nowISO = () => new Date().toISOString();
@@ -57,24 +75,47 @@ const PilotApp = (() => {
     return JSON.parse(localStorage.getItem(k) || "[]");
   }
 
+  function toDbPayload(log) {
+  return {
+    ts: log.ts,
+    event_type: log.event_type,
+
+    user_id: log.user_id,
+    loginid: log.loginId,     // ← users.json의 loginId → DB의 loginid
+    name: log.name,
+    role: log.role,
+    team: log.team,
+    position: log.position,
+
+    env: log.env,
+    is_mobile: log.is_mobile,
+
+    leader_mode: log.leader_mode,
+    group_members: log.group_members ?? null
+  };
+}
+
   async function supabaseInsertLog(log) {
-    const url = `${CONFIG.SUPABASE_URL}/rest/v1/${CONFIG.SUPABASE_TABLE}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "apikey": CONFIG.SUPABASE_ANON_KEY,
-        "Authorization": `Bearer ${CONFIG.SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-      },
-      body: JSON.stringify([log])
-    });
-    if (!res.ok) {
-      // Supabase 설정 안되면 파일럿 중단 안되게 로컬로 백업
-      console.warn("Supabase insert failed, fallback to local", await res.text());
-      localAppendLog({ ...log, _note: "fallback_local" });
-    }
+  const url = `${CONFIG.SUPABASE_URL}/rest/v1/${CONFIG.SUPABASE_TABLE}`;
+  const payload = toDbPayload(log);   // ⭐ 핵심
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "apikey": CONFIG.SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${CONFIG.SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    },
+    body: JSON.stringify([payload])
+  });
+
+  if (!res.ok) {
+    console.warn("Supabase insert failed, fallback to local", await res.text());
+    localAppendLog({ ...log, _note: "fallback_local" });
   }
+}
+
 
   async function writeLog(log) {
     // 공통 보강
@@ -363,13 +404,15 @@ const PilotApp = (() => {
       }
     }
 
-    btn.onclick = () => {
-      const logs = localReadLogsToday();
-      renderHourly(logs);
+    btn.onclick = async () => {
+       const logs = CONFIG.USE_SUPABASE ? await supabaseReadLogsToday() : localReadLogsToday();
+       renderHourly(logs);
     };
 
+
     // 첫 로드
-    btn.click();
+    await btn.onclick();
+
   }
 
   return {

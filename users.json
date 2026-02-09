@@ -1,33 +1,266 @@
 {
   "users": [
-    {
-      "id": "u001",
-      "loginId": "member01",
-      "password": "1234",
-      "name": "김철수",
-      "role": "member",
-      "team": "마케팅1팀",
-      "position": "팀원",
-      "owner": "홍길동"
-    },
-    {
-      "id": "u010",
-      "loginId": "leader01",
-      "password": "1234",
-      "name": "박팀장",
-      "role": "leader",
-      "team": "마케팅1팀",
-      "position": "팀장",
-      "owner": "홍길동"
-    },
-    {
-      "id": "u100",
-      "loginId": "owner01",
-      "password": "1234",
-      "name": "홍길동",
-      "role": "owner",
-      "team": "마케팅본부",
-      "position": "담당"
-    }
+    [
+  {
+    "id": "OWN_30001",
+    "loginId": "younghoon.lim",
+    "password": "lge12345",
+    "name": "임영훈",
+    "role": "owner",
+    "team": "Employee eXperience담당",
+    "position": "담당",
+    "owner": ""
+  },
+  {
+    "id": "LEAD_20001",
+    "loginId": "joaquim.hong",
+    "password": "lge12345",
+    "name": "홍정환",
+    "role": "leader",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀장",
+    "owner": "임영훈"
+  },
+  {
+    "id": "LEAD_20002",
+    "loginId": "sophia.bae",
+    "password": "lge12345",
+    "name": "배성심",
+    "role": "leader",
+    "team": "Leadership Development팀",
+    "position": "팀장",
+    "owner": "임영훈"
+  },
+  {
+    "id": "LEAD_20003",
+    "loginId": "sungsu.nam",
+    "password": "lge12345",
+    "name": "남성수",
+    "role": "leader",
+    "team": "Employee Communication팀",
+    "position": "팀장",
+    "owner": "임영훈"
+  },
+  {
+    "id": "EMP_10001",
+    "loginId": "fidel.choe",
+    "password": "lge12345",
+    "name": "최민욱",
+    "role": "member",
+    "team": "Employee Communication팀",
+    "position": "팀원",
+    "owner": "남성수"
+  },
+  {
+    "id": "EMP_10002",
+    "loginId": "ksmedia.kim",
+    "password": "lge12345",
+    "name": "김경순",
+    "role": "member",
+    "team": "Employee Communication팀",
+    "position": "팀원",
+    "owner": "남성수"
+  },
+  {
+    "id": "EMP_10003",
+    "loginId": "soorin.choi",
+    "password": "lge12345",
+    "name": "최수린",
+    "role": "member",
+    "team": "Employee Communication팀",
+    "position": "팀원",
+    "owner": "남성수"
+  },
+  {
+    "id": "EMP_10004",
+    "loginId": "jeonghwa.hong",
+    "password": "lge12345",
+    "name": "홍정화",
+    "role": "member",
+    "team": "Employee Communication팀",
+    "position": "팀원",
+    "owner": "남성수"
+  },
+  {
+    "id": "EMP_10005",
+    "loginId": "sanghyuk.jun",
+    "password": "lge12345",
+    "name": "전상혁",
+    "role": "member",
+    "team": "Employee Communication팀",
+    "position": "팀원",
+    "owner": "남성수"
+  },
+  {
+    "id": "EMP_10006",
+    "loginId": "hseo.kim",
+    "password": "lge12345",
+    "name": "김현서",
+    "role": "member",
+    "team": "Employee Communication팀",
+    "position": "팀원",
+    "owner": "남성수"
+  },
+  {
+    "id": "EMP_10007",
+    "loginId": "gwen.park",
+    "password": "lge12345",
+    "name": "박선미",
+    "role": "member",
+    "team": "Leadership Development팀",
+    "position": "팀원",
+    "owner": "배성심"
+  },
+  {
+    "id": "EMP_10008",
+    "loginId": "ih.song",
+    "password": "lge12345",
+    "name": "송인해",
+    "role": "member",
+    "team": "Leadership Development팀",
+    "position": "팀원",
+    "owner": "배성심"
+  },
+  {
+    "id": "EMP_10009",
+    "loginId": "dy.ahn",
+    "password": "lge12345",
+    "name": "안동윤",
+    "role": "member",
+    "team": "Leadership Development팀",
+    "position": "팀원",
+    "owner": "배성심"
+  },
+  {
+    "id": "EMP_10010",
+    "loginId": "jc.ju",
+    "password": "lge12345",
+    "name": "주정철",
+    "role": "member",
+    "team": "Leadership Development팀",
+    "position": "팀원",
+    "owner": "배성심"
+  },
+  {
+    "id": "EMP_10011",
+    "loginId": "ey.choi",
+    "password": "lge12345",
+    "name": "최은영",
+    "role": "member",
+    "team": "Leadership Development팀",
+    "position": "팀원",
+    "owner": "배성심"
+  },
+  {
+    "id": "EMP_10012",
+    "loginId": "fransis.kim",
+    "password": "lge12345",
+    "name": "김병철",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10013",
+    "loginId": "hyuna.park",
+    "password": "lge12345",
+    "name": "박현아",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10014",
+    "loginId": "jihee.yu",
+    "password": "lge12345",
+    "name": "유지희",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10015",
+    "loginId": "hongeun.yoo",
+    "password": "lge12345",
+    "name": "유홍은",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10016",
+    "loginId": "jaeman.chon",
+    "password": "lge12345",
+    "name": "전재만",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10017",
+    "loginId": "gyumin.jeong",
+    "password": "lge12345",
+    "name": "정규민",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10018",
+    "loginId": "jy.jung",
+    "password": "lge12345",
+    "name": "정재용",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10019",
+    "loginId": "sehwan.ji",
+    "password": "lge12345",
+    "name": "지세환",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10020",
+    "loginId": "seonyoung.choi",
+    "password": "lge12345",
+    "name": "최선영",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10021",
+    "loginId": "sangho1.shin",
+    "password": "lge12345",
+    "name": "신상호",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  },
+  {
+    "id": "EMP_10022",
+    "loginId": "jeon23.lee",
+    "password": "lge12345",
+    "name": "이지연",
+    "role": "member",
+    "team": "Employee eXperience&Growth팀",
+    "position": "팀원",
+    "owner": "홍정환"
+  }
+]
   ]
 }
