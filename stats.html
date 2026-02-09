@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>전사 라이브 파일럿 - 통계 대시보드</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background:#0b1220; color:#e9eefc; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 16px; }
+    .card { background:#121b2e; border:1px solid #23304d; border-radius:14px; padding:20px; margin-bottom:20px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom: 20px;}
+    .filters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:20px; }
+    .filters select, .filters input { padding:8px 12px; border-radius:8px; border:1px solid #2a3b61; background:#0f172a; color:#e9eefc; }
+    .filters button { padding:8px 16px; border-radius:8px; border:none; background:#2b59ff; color:white; cursor:pointer; font-weight:600; }
+    .filters button:disabled { opacity:.5; cursor:not-allowed; }
+    .auto-refresh { display:flex; align-items:center; gap:8px; font-size:14px; color:#a9b7da; }
+    .stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:20px; }
+    .stat-item { background:#1a2332; padding:16px; border-radius:10px; text-align:center; }
+    .stat-value { font-size:28px; font-weight:700; color:#2b59ff; margin-bottom:4px; }
+    .stat-label { font-size:14px; color:#a9b7da; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:12px; text-align:left; border-bottom:1px solid #23304d; }
+    th { background:#1a2332; font-weight:600; }
+    .online { color:#4ade80; }
+    .offline { color:#f87171; }
+    .muted { color:#a9b7da; font-size: 13px; line-height:1.4; }
+    a { color:#9db4ff; text-decoration:none; }
+    .loading { text-align:center; padding:20px; color:#a9b7da; }
+    .hourly-bar { background:#2b59ff; height:20px; border-radius:4px; transition:width 0.3s ease; }
+    .hourly-cell { display:flex; align-items:center; gap:8px; }
+    .hourly-count { min-width:40px; text-align:right; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h2 style="margin:0;">통계 대시보드</h2>
+      <div><a href="./index.html">로그인으로</a></div>
+    </div>
+
+    <!-- 필터 섹션 -->
+    <div class="card">
+      <h3 style="margin-top:0;">필터</h3>
+      <div class="filters">
+        <select id="dateFilter">
+          <option value="today">오늘</option>
+          <option value="yesterday">어제</option>
+          <option value="custom">사용자 지정</option>
+        </select>
+        <input type="date" id="customDate" style="display:none;" />
+        <select id="roleFilter">
+          <option value="">전체 역할</option>
+          <option value="member">팀원</option>
+          <option value="leader">팀장</option>
+          <option value="owner">담당</option>
+        </select>
+        <select id="envFilter">
+          <option value="">전체 환경</option>
+          <option value="internal">사내</option>
+          <option value="external">사외</option>
+        </select>
+        <button id="btnRefresh">새로고침</button>
+        <div class="auto-refresh">
+          <input type="checkbox" id="autoRefresh" checked />
+          <label for="autoRefresh">자동 새로고침 (10초)</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 전체 누적 통계 -->
+    <div class="card">
+      <h3 style="margin-top:0;">전체 누적 (오늘)</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-value" id="totalEnters">-</div>
+          <div class="stat-label">접속 수</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="uniqueUsers">-</div>
+          <div class="stat-label">Unique 사용자</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="currentOnline">-</div>
+          <div class="stat-label">현재 접속중</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="mobileRatio">-</div>
+          <div class="stat-label">모바일 비율</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 시간대별 접속 통계 -->
+    <div class="card">
+      <h3 style="margin-top:0;">시간대별 접속 (enter)</h3>
+      <div id="hourlyLoading" class="loading">데이터 로딩 중...</div>
+      <table id="hourlyTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>시간</th>
+            <th>접속 수</th>
+            <th>그래프</th>
+          </tr>
+        </thead>
+        <tbody id="hourlyBody">
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 팀별 현황 테이블 -->
+    <div class="card">
+      <h3 style="margin-top:0;">팀별 현황</h3>
+      <div id="teamLoading" class="loading">데이터 로딩 중...</div>
+      <table id="teamTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>팀명</th>
+            <th>팀장</th>
+            <th>팀원 접속중</th>
+            <th>사내/사외 비율</th>
+            <th>모바일 비율</th>
+          </tr>
+        </thead>
+        <tbody id="teamBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+  <script>
+    PilotApp.initStatsPage();
+  </script>
+</body>
+</html>

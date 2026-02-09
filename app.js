@@ -757,13 +757,204 @@ const PilotApp = (() => {
   }
 
   async function initStatsPage() {
-    const btn = $("btnRefresh");
-    const tbody = $("tbody");
+    // DOM 참조
+    const btnRefresh = $("btnRefresh");
+    const dateFilter = $("dateFilter");
+    const customDate = $("customDate");
+    const roleFilter = $("roleFilter");
+    const envFilter = $("envFilter");
+    const autoRefresh = $("autoRefresh");
+    
+    // 통계 DOM
+    const totalEnters = $("totalEnters");
+    const uniqueUsers = $("uniqueUsers");
+    const currentOnline = $("currentOnline");
+    const mobileRatio = $("mobileRatio");
+    const hourlyLoading = $("hourlyLoading");
+    const hourlyTable = $("hourlyTable");
+    const hourlyBody = $("hourlyBody");
+    const teamLoading = $("teamLoading");
+    const teamTable = $("teamTable");
+    const teamBody = $("teamBody");
 
-    function renderHourly(logs) {
+    let refreshInterval = null;
+
+    // 날짜 필터 변경 시 커스텀 날짜 입력창 표시/숨김
+    dateFilter.onchange = () => {
+      if (dateFilter.value === "custom") {
+        customDate.style.display = "inline-block";
+        customDate.value = new Date().toISOString().slice(0, 10);
+      } else {
+        customDate.style.display = "none";
+      }
+    };
+
+    // 날짜 범위 가져오기
+    function getDateRange() {
+      const now = new Date();
+      let start, end;
+      
+      if (dateFilter.value === "today") {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      } else if (dateFilter.value === "yesterday") {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (dateFilter.value === "custom" && customDate.value) {
+        start = new Date(customDate.value + "T00:00:00");
+        end = new Date(customDate.value + "T23:59:59");
+      } else {
+        // 기본: 오늘
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      }
+      
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+
+    // Supabase에서 로그 읽기 (날짜 범위 및 필터 적용)
+    async function supabaseReadLogsFiltered() {
+      const { start, end } = getDateRange();
+      let url = `${CONFIG.SUPABASE_URL}/rest/v1/${CONFIG.SUPABASE_TABLE}?ts=gte.${encodeURIComponent(start)}&ts=lt.${encodeURIComponent(end)}&order=ts.asc`;
+      
+      // 역할 필터
+      if (roleFilter.value) {
+        url += `&role=eq.${roleFilter.value}`;
+      }
+      
+      // 환경 필터
+      if (envFilter.value) {
+        url += `&env=eq.${envFilter.value}`;
+      }
+
+      const res = await fetch(url, {
+        headers: {
+          apikey: CONFIG.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${CONFIG.SUPABASE_ANON_KEY}`
+        }
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    }
+
+    // 로컬 스토리지에서 로그 읽기 (필터 적용)
+    function localReadLogsFiltered() {
+      const { start, end } = getDateRange();
+      const logs = localReadLogsToday();
+      
+      return logs.filter(log => {
+        const logTime = new Date(log.ts).getTime();
+        const startTime = new Date(start).getTime();
+        const endTime = new Date(end).getTime();
+        
+        if (logTime < startTime || logTime >= endTime) return false;
+        if (roleFilter.value && log.role !== roleFilter.value) return false;
+        if (envFilter.value && log.env !== envFilter.value) return false;
+        
+        return true;
+      });
+    }
+
+    // 현재 접속자 계산 (집계 규칙 2, 3 적용)
+    function computeCurrentOnline(logs, users) {
+      const lastByUser = new Map();
+      
+      // 각 사용자의 마지막 이벤트 찾기
+      for (const l of logs) {
+        if (!l.user_id) continue;
+        const prev = lastByUser.get(l.user_id);
+        if (!prev || new Date(l.ts) > new Date(prev.ts)) {
+          lastByUser.set(l.user_id, l);
+        }
+      }
+
+      const online = new Set();
+      const groupMembers = new Set(); // 팀장이 group으로 체크한 멤버
+      
+      // 개별 접속자 찾기
+      for (const [uid, ev] of lastByUser.entries()) {
+        if (ev.event_type === "enter") {
+          online.add(uid);
+          
+          // 팀장이 group 모드인 경우 group_members 추가
+          if (ev.role === "leader" && ev.leader_mode === "group" && ev.group_members) {
+            ev.group_members.forEach(member => {
+              groupMembers.add(member.id);
+            });
+          }
+        }
+      }
+
+      // 개별 접속자와 그룹 멤버 중복 제거
+      const finalOnline = new Set(online);
+      for (const memberId of groupMembers) {
+        if (!online.has(memberId)) {
+          finalOnline.add(memberId);
+        }
+      }
+
+      return finalOnline;
+    }
+
+    // 팀별 통계 계산
+    function computeTeamStats(logs, users, onlineUsers) {
+      const teams = [...new Set(users.map(u => u.team))];
+      const stats = {};
+
+      for (const team of teams) {
+        const teamUsers = users.filter(u => u.team === team);
+        const leader = teamUsers.find(u => u.role === "leader");
+        const members = teamUsers.filter(u => u.role === "member");
+        
+        // 팀장 온라인 여부
+        const leaderOnline = leader ? onlineUsers.has(leader.id) : false;
+        
+        // 팀원 온라인 계산 (개별 + 그룹)
+        let memberOnlineCount = 0;
+        let internalCount = 0;
+        let mobileCount = 0;
+        let totalAccessCount = 0;
+
+        // 팀별 로그 필터링
+        const teamLogs = logs.filter(l => l.team === team);
+        const enterLogs = teamLogs.filter(l => l.event_type === "enter");
+
+        // 온라인 팀원 계산
+        for (const member of members) {
+          if (onlineUsers.has(member.id)) {
+            memberOnlineCount++;
+          }
+        }
+
+        // 접속 환경 및 모바일 통계
+        for (const log of enterLogs) {
+          totalAccessCount++;
+          if (log.env === "internal") internalCount++;
+          if (log.is_mobile) mobileCount++;
+        }
+
+        const internalRatio = totalAccessCount > 0 ? (internalCount / totalAccessCount * 100).toFixed(1) : "0.0";
+        const mobileRatio = totalAccessCount > 0 ? (mobileCount / totalAccessCount * 100).toFixed(1) : "0.0";
+
+        stats[team] = {
+          leader: leader ? { name: leader.name, online: leaderOnline } : null,
+          memberOnline: memberOnlineCount,
+          memberTotal: members.length,
+          internalRatio: internalRatio + "%",
+          mobileRatio: mobileRatio + "%"
+        };
+      }
+
+      return stats;
+    }
+
+    // 시간대별 집계
+    function computeHourlyStats(logs) {
       const enter = logs.filter(l => l.event_type === "enter");
       const hours = Array.from({ length: 24 }, (_, i) => i);
       const counts = {};
+      
       for (const h of hours) counts[h] = 0;
 
       for (const l of enter) {
@@ -772,23 +963,121 @@ const PilotApp = (() => {
         counts[h] = (counts[h] || 0) + 1;
       }
 
-      tbody.innerHTML = "";
-      for (const h of hours) {
+      return counts;
+    }
+
+    // UI 렌더링 함수들
+    function renderSummary(logs, onlineUsers) {
+      const enterLogs = logs.filter(l => l.event_type === "enter");
+      const uniqueUsers = new Set(enterLogs.map(l => l.user_id));
+      const mobileCount = enterLogs.filter(l => l.is_mobile).length;
+      const mobileRatio = enterLogs.length > 0 ? (mobileCount / enterLogs.length * 100).toFixed(1) : "0.0";
+
+      totalEnters.textContent = enterLogs.length.toLocaleString();
+      uniqueUsers.textContent = uniqueUsers.size.toLocaleString();
+      currentOnline.textContent = onlineUsers.size.toLocaleString();
+      mobileRatio.textContent = mobileRatio + "%";
+    }
+
+    function renderHourly(counts) {
+      hourlyBody.innerHTML = "";
+      const maxCount = Math.max(...Object.values(counts), 1);
+
+      for (let h = 0; h < 24; h++) {
+        const count = counts[h] || 0;
+        const widthPercent = (count / maxCount * 100).toFixed(1);
+        
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${String(h).padStart(2, "0")}시</td><td>${counts[h] || 0}</td>`;
-        tbody.appendChild(tr);
+        tr.innerHTML = `
+          <td>${String(h).padStart(2, "0")}시</td>
+          <td class="hourly-count">${count}</td>
+          <td class="hourly-cell">
+            <div class="hourly-bar" style="width: ${widthPercent}%;"></div>
+          </td>
+        `;
+        hourlyBody.appendChild(tr);
+      }
+
+      hourlyLoading.style.display = "none";
+      hourlyTable.style.display = "table";
+    }
+
+    function renderTeams(teamStats) {
+      teamBody.innerHTML = "";
+      
+      for (const [team, stats] of Object.entries(teamStats)) {
+        const tr = document.createElement("tr");
+        const leaderStatus = stats.leader 
+          ? `<span class="${stats.leader.online ? 'online' : 'offline'}">${stats.leader.online ? '접속중' : '미접속'}</span>`
+          : '-';
+        
+        tr.innerHTML = `
+          <td>${team}</td>
+          <td>${leaderStatus}</td>
+          <td>${stats.memberOnline}/${stats.memberTotal} 접속중</td>
+          <td>${stats.internalRatio}</td>
+          <td>${stats.mobileRatio}</td>
+        `;
+        teamBody.appendChild(tr);
+      }
+
+      teamLoading.style.display = "none";
+      teamTable.style.display = "table";
+    }
+
+    // 메시지 로드 및 렌더링
+    async function loadAndRenderData() {
+      try {
+        // 로딩 표시
+        hourlyLoading.style.display = "block";
+        hourlyTable.style.display = "none";
+        teamLoading.style.display = "block";
+        teamTable.style.display = "none";
+
+        // 데이터 로드
+        const logs = CONFIG.USE_SUPABASE ? await supabaseReadLogsFiltered() : localReadLogsFiltered();
+        const users = await loadUsers();
+        
+        // 통계 계산
+        const onlineUsers = computeCurrentOnline(logs, users);
+        const teamStats = computeTeamStats(logs, users, onlineUsers);
+        const hourlyStats = computeHourlyStats(logs);
+
+        // UI 렌더링
+        renderSummary(logs, onlineUsers);
+        renderHourly(hourlyStats);
+        renderTeams(teamStats);
+
+      } catch (error) {
+        console.error("데이터 로딩 실패:", error);
+        hourlyLoading.textContent = "데이터 로딩 실패";
+        teamLoading.textContent = "데이터 로딩 실패";
       }
     }
 
-    btn.onclick = async () => {
-       const logs = CONFIG.USE_SUPABASE ? await supabaseReadLogsToday() : localReadLogsToday();
-       renderHourly(logs);
-    };
+    // 자동 새로고침 설정
+    function setupAutoRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
 
+      if (autoRefresh.checked) {
+        refreshInterval = setInterval(loadAndRenderData, 10000); // 10초
+      }
+    }
 
-    // 첫 로드
-    await btn.onclick();
+    // 이벤트 리스너
+    btnRefresh.onclick = loadAndRenderData;
+    dateFilter.onchange = loadAndRenderData;
+    customDate.onchange = loadAndRenderData;
+    roleFilter.onchange = loadAndRenderData;
+    envFilter.onchange = loadAndRenderData;
+    autoRefresh.onchange = setupAutoRefresh;
 
+    // 초기 로드
+    await loadAndRenderData();
+    setupAutoRefresh();
   }
 
   return {
